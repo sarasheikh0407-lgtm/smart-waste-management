@@ -1,0 +1,131 @@
+openapi: 3.1.0
+info:
+  title: Terra Smart Waste API
+  version: 1.0.0
+  description: Bin telemetry overview, citizen reports, and collection route planning.
+servers:
+  - url: http://localhost:4000/api/v1
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: terra_session
+  schemas:
+    Error:
+      type: object
+      required: [success, error]
+      properties:
+        success: { type: boolean, const: false }
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            details: { type: array, items: { type: object, additionalProperties: true } }
+        requestId: { type: string }
+    ReportInput:
+      type: object
+      required: [category, description, area]
+      properties:
+        category: { type: string, enum: [Overflowing bin, Illegal dumping, Missed collection, Damaged bin, Other waste issue] }
+        description: { type: string, minLength: 8, maxLength: 1000 }
+        area: { type: string, minLength: 2, maxLength: 120 }
+        latitude: { type: number, minimum: -90, maximum: 90 }
+        longitude: { type: number, minimum: -180, maximum: 180 }
+paths:
+  /health:
+    get:
+      summary: Liveness check
+      responses:
+        '200': { description: API process is alive }
+  /ready:
+    get:
+      summary: Dependency readiness
+      responses:
+        '200': { description: PostgreSQL is available }
+        '503': { description: Required dependency unavailable }
+  /auth/register:
+    post:
+      summary: Register a citizen account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password]
+              properties:
+                name: { type: string, minLength: 2, maxLength: 80 }
+                email: { type: string, format: email }
+                password: { type: string, minLength: 10, maxLength: 128 }
+      responses:
+        '201': { description: Account created and session cookie set }
+        '400': { description: Invalid input }
+        '409': { description: Email already exists }
+  /auth/login:
+    post:
+      summary: Authenticate
+      responses:
+        '200': { description: Authenticated and session cookie set }
+        '401': { description: Invalid credentials }
+  /auth/logout:
+    post:
+      summary: Clear session cookie
+      responses:
+        '200': { description: Logged out }
+  /auth/me:
+    get:
+      security: [{ sessionCookie: [] }]
+      summary: Current user
+      responses:
+        '200': { description: Current identity }
+        '401': { description: Not authenticated }
+  /bins:
+    get:
+      summary: List bins
+      parameters:
+        - { in: query, name: page, schema: { type: integer, minimum: 1, default: 1 } }
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { in: query, name: q, schema: { type: string, maxLength: 120 } }
+      responses:
+        '200': { description: Bin page and pagination metadata }
+  /reports:
+    get:
+      summary: List citizen reports
+      responses:
+        '200': { description: Paginated reports }
+    post:
+      summary: Submit a citizen report
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReportInput' }
+      responses:
+        '201': { description: Report created }
+        '400': { description: Invalid report }
+  /reports/{id}/status:
+    patch:
+      security: [{ sessionCookie: [] }]
+      summary: Update report status (operator/admin)
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      responses:
+        '200': { description: Updated report }
+        '403': { description: Role not permitted }
+        '404': { description: Report not found }
+  /routes/optimize:
+    post:
+      summary: Build priority-weighted nearest-neighbour route
+      responses:
+        '200': { description: Stop sequence and estimated distance/duration }
+  /telemetry:
+    post:
+      security: [{ sessionCookie: [] }]
+      summary: Update a bin reading (operator/admin)
+      responses:
+        '200': { description: Reading stored }
+        '403': { description: Role not permitted }
+        '400': { description: Invalid payload }

@@ -1,0 +1,5 @@
+{
+  "name":"terra-smart-waste","private":true,"version":"1.0.0","workspaces":["frontend","backend"],
+  "scripts":{"dev":"concurrently -n api,web -c green,cyan \"npm:dev:api\" \"npm:dev:web\"","dev:api":"npm --workspace backend run dev","dev:web":"npm --workspace frontend run dev","build":"npm run build --workspace backend && npm run build --workspace frontend","typecheck":"npm run typecheck --workspace backend && npm run typecheck --workspace frontend","test":"npm run test --workspace backend && npm run test --workspace frontend"},
+  "devDependencies":{"concurrently":"^9.1.2"}
+}

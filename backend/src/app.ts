@@ -1,0 +1,10 @@
+import express from 'express';import cors from 'cors';import helmet from 'helmet';import cookieParser from 'cookie-parser';import pinoHttp from 'pino-http';import pino from 'pino';import rateLimit from 'express-rate-limit';
+import routes from './routes/index.js';import {requestId,checkOrigin,errorHandler} from './middleware/http.js';
+const app=express();const logger=pino({level:process.env.LOG_LEVEL??'info'});
+app.disable('x-powered-by');app.set('trust proxy',process.env.TRUST_PROXY==='true'?1:false);
+app.use(requestId);app.use(pinoHttp({logger,genReqId:req=>(req as typeof req & {requestId:string}).requestId,customProps:req=>({requestId:(req as typeof req & {requestId:string}).requestId})}));
+app.use(helmet({crossOriginResourcePolicy:{policy:'cross-origin'},contentSecurityPolicy:process.env.NODE_ENV==='production'?undefined:false}));
+const allowedOrigin=process.env.FRONTEND_URL??'http://localhost:5173';app.use(cors({origin:allowedOrigin,credentials:true,methods:['GET','POST','PATCH','DELETE','OPTIONS'],allowedHeaders:['Content-Type','X-Request-Id']}));app.use(checkOrigin);app.use(express.json({limit:'32kb'}));app.use(cookieParser());
+app.use('/api/',rateLimit({windowMs:60_000,limit:120,standardHeaders:true,legacyHeaders:false}));app.use('/api/v1',routes);
+app.use((_req,res)=>res.status(404).json({success:false,error:{code:'NOT_FOUND',message:'The requested endpoint was not found.'}}));app.use(errorHandler);
+export default app;

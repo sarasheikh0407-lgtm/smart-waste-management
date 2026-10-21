@@ -1,0 +1,27 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: waste
+      POSTGRES_PASSWORD: waste_dev_password
+      POSTGRES_DB: smartwaste
+    ports: ["5432:5432"]
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U waste -d smartwaste"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  mongo:
+    image: mongo:7
+    ports: ["27017:27017"]
+    volumes: ["mongodata:/data/db"]
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru"]
+    ports: ["6379:6379"]
+    volumes: ["redisdata:/data"]
+volumes:
+  pgdata:
+  mongodata:
+  redisdata:
